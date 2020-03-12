@@ -1,6 +1,8 @@
-struct Tokenizer {
-    content: String
-    current_pos: i32
+//pub mod tokenizer {
+
+pub struct Tokenizer {
+    pub content: String,
+    pub current_pos: i32
 }
 
 enum TokenType {
@@ -11,13 +13,14 @@ enum TokenType {
 }
 
 struct Token {
-    type: TokenType,
+    token_type: TokenType,
     string: String,
     value: f64,
 }
 
 impl Tokenizer {
-    pub fn next() -> &String {
-
+    pub fn next() -> String {
+        String::from("")
     }
 }
+//}
