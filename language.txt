@@ -1,0 +1,45 @@
+#Doing
+v0.1.0
+- 单文件
+- 支持数学上的加、减、乘、除、幂、求模
+- 支持变量定义，但是不存在局部变量
+- 只有两种语句，print语句、变量定义语句
+2+3、4/2、3%8 均为表达式，有值
+print <表达式> 可以将表达式的值输出
+a = <表达式> 可以将表达式的值存入a，本身没有值
+语法:
+    每一行是一个STATEMENT
+    STATEMENT
+        赋值语句
+            NAME ASSIGN EXPRESSION
+        print语句
+            PRINT EXPRESSION
+    ASSIGN := "="
+    PRINT := "print"
+    EXPRESSION := NAME OPERATOR EXPRESSION
+               += INTEGER OPERATOR EXPRESSION
+               += NAME
+               += INTEGER
+    OPERATOR := "+"
+             += "-"
+             += "*"
+             += "/"
+             += "^"
+             += "%"
+    INTEGER := "[1-9]+[0-9]*"
+    NAME := "[a-zA-Z_]+[a-zA-z0-9_]*"
+
+
+#Plan
+v0.2.0
+- 支持函数定义
+- 只有四种语句，print语句、变量定义语句、while循环语句、函数定义语句
+- 条件表达式
+func name(a, b)     //函数本身没有值，所有函数定义都会提升
+{
+    return a * b
+}
+while (条件表达式)
+{
+    
+}
