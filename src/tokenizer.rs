@@ -5,19 +5,20 @@ pub struct Tokenizer {
     chars: vec::Vec<char>
 }
 
-enum TokenType {
+pub enum TokenType {
     Assign,
     Operator,
     Name,
     Integer,
     Print,
+    Newline,
     EOF,
 }
 
 pub struct Token {
-    token_type: TokenType,
-    string: String,
-    value: i64,
+    pub token_type: TokenType,
+    pub string: String,
+    pub value: i64,
 }
 
 impl Tokenizer {
@@ -110,6 +111,14 @@ impl Tokenizer {
         })
     }
 
+    fn new_line(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        Ok(Token {
+            token_type: TokenType::Newline,
+            string: "\n".to_string(),
+            value: 0,
+        })
+    }
     pub fn next(&mut self) -> Result<Token, String> {
         if self.current_pos == self.chars.len() {
             return self.eof();
@@ -124,6 +133,7 @@ impl Tokenizer {
         }
         match next_char {
             '=' => return self.assign(),
+            '\n' => return self.new_line(),
             '+' | '-' | '*' | '/' | '^' | '%' => return self.operator(),
             _ => return Err(format!("unexpected characters {}", next_char).to_string()),
         }
