@@ -4,13 +4,30 @@ pub struct Parser {
     tokenizer: tokenizer::Tokenizer
 }
 
+//only for syntax check now
 impl Parser {
+    fn name_or_noe(&mut self, prev_token: tokenizer::Token) -> i64 {
+        let token = self.tokenizer.next().unwrap();
+        match token.token_type {
+            tokenizer::TokenType::Operator => return self.expression(),
+            tokenizer::TokenType::Newline | tokenizer::TokenType::EOF => return prev_token.value,
+            _ => panic!("syntax error, expect operator or newline"),
+        }
+    }
 
+    fn integer_or_ioe(&mut self, prev_token: tokenizer::Token) -> i64 {
+        let token = self.tokenizer.next().unwrap();
+        match token.token_type {
+            tokenizer::TokenType::Operator => return self.expression(),
+            tokenizer::TokenType::Newline | tokenizer::TokenType::EOF => return prev_token.value,
+            _ => panic!("syntax error, expect operator or newline, found {}", token.string),
+        }
+    }
     fn expression(&mut self) -> i64 {
         let token = self.tokenizer.next().unwrap();
         match token.token_type {
-            tokenizer::TokenType::Name => 1,    //TODO: parse expression
-            tokenizer::TokenType::Integer => 2,
+            tokenizer::TokenType::Name => return self.name_or_noe(token),
+            tokenizer::TokenType::Integer => return self.integer_or_ioe(token),
             _ => panic!("syntax error, expect variable or integer, found {}", token.string),
         }
     }

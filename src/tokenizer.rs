@@ -25,8 +25,9 @@ impl Tokenizer {
 
     fn skip_whitespace(&mut self) {
         loop {
-            if self.chars.len() < self.current_pos &&
-                self.chars[self.current_pos].is_whitespace() {
+            if self.chars.len() > self.current_pos &&
+                self.chars[self.current_pos].is_whitespace() &&
+                self.chars[self.current_pos] != '\n' {
                 self.current_pos += 1;
                 continue;
             }
@@ -43,6 +44,7 @@ impl Tokenizer {
     }
 
     //TODO: support _ and digit in name
+    //FIXME: if the last line like 'print a' without <newline>, it will crash because of OUT OF INDEX
     fn name_or_print(&mut self) -> Result<Token, String> {
         let mut string = String::from("");
         loop {
