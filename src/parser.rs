@@ -1,67 +1,102 @@
-use super::tokenizer;
+use super::tokenizer::*;
+use super::ast;
 
 pub struct Parser {
-    tokenizer: tokenizer::Tokenizer
+    tokenizer: Tokenizer
 }
 
 //only for syntax check now
 impl Parser {
-    fn name_or_noe(&mut self, prev_token: tokenizer::Token) -> i64 {
-        let token = self.tokenizer.next().unwrap();
+
+    fn expression_pow(&mut self) -> ast::AstNode {
+        let token = self.tokenizer.look_ahead(1);
+        self.tokenizer.eat(1);
+        let integer_or_name: ast::AstNode;
         match token.token_type {
-            tokenizer::TokenType::Operator => return self.expression(),
-            tokenizer::TokenType::Newline | tokenizer::TokenType::EOF => return prev_token.value,
-            _ => panic!("syntax error, expect operator or newline"),
+            TokenType::Integer => integer_or_name = ast::AstNode::new(ast::NodeType::Integer, token),
+            TokenType::Name => integer_or_name = ast::AstNode::new(ast::NodeType::Name, token),
+            _ => panic!("syntax error, expect integer or name"),
         }
+        let op = self.tokenizer.look_ahead(1);
+        let mut expr_pow: ast::AstNode;
+        match op.token_type {
+            TokenType::Pow => expr_pow = ast::AstNode::new(ast::NodeType::Pow, op),
+            _ => return integer_or_name,
+        }
+        self.tokenizer.eat(1);
+        expr_pow.add_node(integer_or_name);
+        expr_pow.add_node(self.expression_pow());
+        return expr_pow;
     }
 
-    fn integer_or_ioe(&mut self, prev_token: tokenizer::Token) -> i64 {
-        let token = self.tokenizer.next().unwrap();
-        match token.token_type {
-            tokenizer::TokenType::Operator => return self.expression(),
-            tokenizer::TokenType::Newline | tokenizer::TokenType::EOF => return prev_token.value,
-            _ => panic!("syntax error, expect operator or newline, found {}", token.string),
+    fn expression_mul(&mut self) -> ast::AstNode {
+        let expr_pow = self.expression_pow();
+        let op = self.tokenizer.look_ahead(1);
+        let mut expr_mul: ast::AstNode;
+        match op.token_type {
+            TokenType::Mul | TokenType::Div => expr_mul = ast::AstNode::new(ast::NodeType::Mul, op),
+            _ => return expr_pow,
         }
+        self.tokenizer.eat(1);
+        expr_mul.add_node(expr_pow);
+        expr_mul.add_node(self.expression_mul());
+        return expr_mul;
     }
-    fn expression(&mut self) -> i64 {
-        let token = self.tokenizer.next().unwrap();
-        match token.token_type {
-            tokenizer::TokenType::Name => return self.name_or_noe(token),
-            tokenizer::TokenType::Integer => return self.integer_or_ioe(token),
-            _ => panic!("syntax error, expect variable or integer, found {}", token.string),
+    fn expression_add(&mut self) -> ast::AstNode {
+        let expr_mul = self.expression_mul();
+        let op = self.tokenizer.look_ahead(1);
+        let mut expr_add: ast::AstNode;
+        match op.token_type {
+            TokenType::Add | TokenType::Sub | TokenType::Mod => expr_add = ast::AstNode::new(ast::NodeType::Add, op),
+            _ => return expr_mul,
         }
+        self.tokenizer.eat(1);
+        expr_add.add_node(expr_mul);
+        expr_add.add_node(self.expression_add());
+        return expr_add;
+    }
+
+    fn expression(&mut self) -> ast::AstNode {
+        return self.expression_add();
     }
     
-    fn statement_print(&mut self) {
-        let value = self.expression();
-        println!("print statement, value: {}", value);
+    fn statement_print(&mut self, parent: &mut ast::AstNode) {
+        let mut print_node = ast::AstNode::new(ast::NodeType::Print, self.tokenizer.look_ahead(1));
+        self.tokenizer.eat(1);
+        print_node.add_node(self.expression());
+        parent.add_node(print_node);
     }
 
-    fn statement_assign(&mut self, token: tokenizer::Token) {
-        let name = token;
-        let assign = self.tokenizer.next().unwrap();
+    fn statement_assign(&mut self, parent: &mut ast::AstNode) {
+        let name = self.tokenizer.look_ahead(1);
+        let assign = self.tokenizer.look_ahead(2);
+        self.tokenizer.eat(2);
         match assign.token_type {
-            tokenizer::TokenType::Assign => println!(""),
-            _ => panic!("syntax error, expect '=', found {}", assign.string),
+            TokenType::Assign => (),
+            _ => panic!("syntax error, expect '=', found {}", assign.literal),
         }
-        let value = self.expression();
-        println!("assign statement, value: {}", value);
+        let mut assign_node = ast::AstNode::new(ast::NodeType::Assign, assign);
+        let name_node = ast::AstNode::new(ast::NodeType::Name, name);
+        assign_node.add_node(name_node);
+        assign_node.add_node(self.expression());
+        parent.add_node(assign_node);
     }
 
-    pub fn parse(&mut self) {
+    pub fn parse(&mut self) -> ast::AstNode {
+        let mut ast_root = ast::AstNode::new(ast::NodeType::Root, Token::new());
         loop {
-            let token = self.tokenizer.next().unwrap();
+            let token = self.tokenizer.look_ahead(1);
             match token.token_type {
-                tokenizer::TokenType::Print => self.statement_print(),
-                tokenizer::TokenType::Name => self.statement_assign(token),
-                tokenizer::TokenType::Newline => continue,
-                tokenizer::TokenType::EOF => return,
-                _ => { println!("syntax error"); return; }
+                TokenType::Print => self.statement_print(&mut ast_root),
+                TokenType::Name => self.statement_assign(&mut ast_root),
+                TokenType::Newline => continue,
+                TokenType::EOF => return ast_root,
+                _ => { println!("syntax error"); return ast_root; }
             }
         }
     }
 
-    pub fn new(tokenizer: tokenizer::Tokenizer) -> Parser {
+    pub fn new(tokenizer: Tokenizer) -> Parser {
         return Parser {
             tokenizer: tokenizer
         }

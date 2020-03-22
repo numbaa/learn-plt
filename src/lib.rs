@@ -2,6 +2,7 @@
 use std::fs;
 mod tokenizer;
 mod parser;
+mod ast;
 
 pub fn run(filename: &String) -> Result<(),()> {
     

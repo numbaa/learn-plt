@@ -16,10 +16,16 @@ a = <表达式> 可以将表达式的值存入a，本身没有值
             PRINT EXPRESSION
     ASSIGN := "="
     PRINT := "print"
-    EXPRESSION := NAME OPERATOR EXPRESSION
-               += INTEGER OPERATOR EXPRESSION
-               += NAME
-               += INTEGER
+    EXPRESSION := ADD_EXPRESSION
+    ADD_EXPRESSION := MUL_EXPRESSION "+" ADD_EXPRESSION
+                   += MUL_EXPRESSION "-" ADD_EXPRESSION
+                   += MUL_EXPRESSION
+    MUL_EXPRESSION := POW_EXPRESSION "*" MUL_EXPRESSION
+                   += POW_EXPRESSION "/" MUL_EXPRESSION
+                   += POW_EXPRESSION
+    POW_EXPRESSION := INTEGER "^" POW_EXPRESSION
+                   += INTEGER
+
     OPERATOR := "+"
              += "-"
              += "*"
