@@ -15,7 +15,7 @@ impl Parser {
         match token.token_type {
             TokenType::Integer => integer_or_name = ast::AstNode::new(ast::NodeType::Integer, token),
             TokenType::Name => integer_or_name = ast::AstNode::new(ast::NodeType::Name, token),
-            _ => panic!("syntax error, expect integer or name"),
+            _ => panic!("syntax error, line:{}, column:{} expect integer or name", token.row, token.col),
         }
         let op = self.tokenizer.look_ahead(1);
         let mut expr_pow: ast::AstNode;
@@ -59,7 +59,7 @@ impl Parser {
     fn expression(&mut self) -> ast::AstNode {
         return self.expression_add();
     }
-    
+
     fn statement_print(&mut self, parent: &mut ast::AstNode) {
         let mut print_node = ast::AstNode::new(ast::NodeType::Print, self.tokenizer.look_ahead(1));
         self.tokenizer.eat(1);
@@ -73,7 +73,7 @@ impl Parser {
         self.tokenizer.eat(2);
         match assign.token_type {
             TokenType::Assign => (),
-            _ => panic!("syntax error, expect '=', found {}", assign.literal),
+            _ => panic!("syntax error, line:{}, column:{}, expect '=', found '{}'", assign.row, assign.col, assign.literal),
         }
         let mut assign_node = ast::AstNode::new(ast::NodeType::Assign, assign);
         let name_node = ast::AstNode::new(ast::NodeType::Name, name);
@@ -89,7 +89,7 @@ impl Parser {
             match token.token_type {
                 TokenType::Print => self.statement_print(&mut ast_root),
                 TokenType::Name => self.statement_assign(&mut ast_root),
-                TokenType::Newline => continue,
+                TokenType::Newline => { self.tokenizer.eat(1); continue; },
                 TokenType::EOF => return ast_root,
                 _ => { println!("syntax error"); return ast_root; }
             }

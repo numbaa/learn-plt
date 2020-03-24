@@ -5,6 +5,8 @@ pub struct Tokenizer {
     current_pos: usize,
     chars: vec::Vec<char>,
     tokens: VecDeque<Token>,
+    current_line: u32,
+    current_column: u32,
 }
 
 #[derive(Copy, Clone)]
@@ -26,6 +28,8 @@ pub enum TokenType {
 pub struct Token {
     pub token_type: TokenType,
     pub literal: String,
+    pub row: u32,
+    pub col: u32,
 }
 
 impl Token {
@@ -33,6 +37,8 @@ impl Token {
         Token {
             token_type: TokenType::EOF,
             literal: "".to_string(),
+            row: 0,
+            col: 0,
         }
     }
 }
@@ -42,6 +48,8 @@ impl Clone for Token {
         Token {
             token_type: self.token_type,
             literal: self.literal.clone(),
+            row: self.row,
+            col: self.col,
         }
     }
 }
@@ -54,6 +62,7 @@ impl Tokenizer {
                 self.chars[self.current_pos].is_whitespace() &&
                 self.chars[self.current_pos] != '\n' {
                 self.current_pos += 1;
+                self.current_column += 1;
                 continue;
             }
             return;
@@ -64,6 +73,8 @@ impl Tokenizer {
         Ok(Token {
             token_type: TokenType::EOF,
             literal: String::from(""),
+            row: self.current_line,
+            col: self.current_column,
         })
     }
 
@@ -71,26 +82,40 @@ impl Tokenizer {
     //FIXME: if the last line like 'print a' without <newline>, it will crash because of OUT OF INDEX
     fn name_or_print(&mut self) -> Result<Token, String> {
         let mut string = String::from("");
+        let old_column = self.current_column;
         loop {
             let c = self.chars[self.current_pos];
             if c.is_alphabetic() {
                 string.push(c);
                 self.current_pos += 1;
+                self.current_column += 1;
                 continue;
             }
             if c.is_whitespace() {
+                let result: Result<Token, String>;
                 self.current_pos += 1;
                 if string == "print".to_string() {
-                    return Ok(Token {
+                    result = Ok(Token {
                         literal: "print".to_string(),
                         token_type: TokenType::Print,
-                    })
+                        row: self.current_line,
+                        col: old_column,
+                    });
                 } else {
-                    return Ok(Token {
+                    result =  Ok(Token {
                         literal: string.clone(),
                         token_type: TokenType::Name,
+                        row: self.current_line,
+                        col: old_column,
                     })
                 }
+                if c == '\n' {
+                    self.current_line += 1;
+                    self.current_pos = 1;
+                } else {
+                    self.current_column += 1;
+                }
+                return result;
             }
             return Err(format!("unexpected character {}", c).to_string());
         }
@@ -98,19 +123,30 @@ impl Tokenizer {
 
     fn integer(&mut self) -> Result<Token, String> {
         let mut string = String::from("");
+        let old_column = self.current_column;
         loop {
             let c = self.chars[self.current_pos];
             if c.is_digit(10) {
                 string.push(c);
                 self.current_pos += 1;
+                self.current_column += 1;
                 continue;
             }
             if c.is_whitespace() {
                 self.current_pos += 1;
-                return Ok(Token {
+                let result = Ok(Token {
                     literal: string.clone(),
                     token_type: TokenType::Integer,
-                })
+                    row: self.current_line,
+                    col: old_column,
+                });
+                if c == '\n' {
+                    self.current_line += 1;
+                    self.current_column = 1;
+                } else {
+                    self.current_column += 1;
+                }
+                return result;
             }
             return Err(format!("unexpected character {}", c).to_string());
         }
@@ -118,67 +154,93 @@ impl Tokenizer {
 
     fn assign(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Assign,
             literal: "=".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn add(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Add,
             literal: "+".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn sub(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Sub,
             literal: "-".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn mul(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Mul,
             literal: "*".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn div(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Div,
             literal: "/".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn pow(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Pow,
             literal: "^".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
     fn remainder(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
+        self.current_column += 1;
         Ok(Token {
             token_type: TokenType::Mod,
             literal: "%".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
         })
     }
 
 
     fn new_line(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
-        Ok(Token {
+        let result = Ok(Token {
             token_type: TokenType::Newline,
             literal: "\n".to_string(),
-        })
+            row: self.current_line,
+            col: self.current_column,
+        });
+        self.current_line += 1;
+        self.current_column = 1;
+        return result;
     }
     fn next(&mut self) -> Result<Token, String> {
         if self.current_pos == self.chars.len() {
@@ -233,6 +295,8 @@ impl Tokenizer {
             current_pos: 0,
             chars: vec::Vec::<char>::new(),
             tokens: VecDeque::<Token>::new(),
+            current_column: 1,
+            current_line: 1,
         };
         for c in s.chars() {
             t.chars.push(c);
