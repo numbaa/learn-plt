@@ -132,7 +132,7 @@ impl Tokenizer {
                 self.current_column += 1;
                 continue;
             }
-            if c.is_whitespace() {
+            if c.is_whitespace() || c.is_ascii_punctuation() {
                 self.current_pos += 1;
                 let result = Ok(Token {
                     literal: string.clone(),

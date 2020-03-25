@@ -19,9 +19,9 @@ pub enum NodeType {
 // }
 
 pub struct AstNode {
-    token: tokenizer::Token,
-    node_type: NodeType,
-    childs: vec::Vec<AstNode>,
+    pub token: tokenizer::Token,
+    pub node_type: NodeType,
+    pub childs: vec::Vec<AstNode>,
 }
 
 impl AstNode {
