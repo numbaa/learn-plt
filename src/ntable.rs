@@ -2,8 +2,8 @@ use super::ast;
 use std::collections::HashMap;
 
 pub struct Variable {
-    name: String,
-    value: i64,
+    pub name: String,
+    pub value: i64,
 }
 
 pub struct NameTable {

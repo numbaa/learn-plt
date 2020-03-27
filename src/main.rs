@@ -14,6 +14,6 @@ fn main() {
     println!("Executing {}...", filename);
     match freestyle::run(filename) {
         Ok(_) => println!("ok"),
-        Err(_) => println!("failed"),
+        Err(msg) => println!("{}", msg),
     }
 }

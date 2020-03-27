@@ -6,7 +6,7 @@ mod ast;
 mod interpreter;
 mod ntable;
 
-pub fn run(filename: &String) -> Result<(),()> {
+pub fn run(filename: &String) -> Result<(),String> {
     
     let contents = fs::read_to_string(filename)
         .expect(&format!("Read content from {} failed", filename));
@@ -14,6 +14,5 @@ pub fn run(filename: &String) -> Result<(),()> {
     let mut parser = parser::Parser::new(tokenizer);
     let tree = parser.parse();
     let mut intp = interpreter::Interpreter::new();
-    intp.execute(&tree);
-    return Ok(())
+    return intp.execute(&tree);
 }

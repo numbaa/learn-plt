@@ -7,53 +7,63 @@ pub struct Parser {
 
 //only for syntax check now
 impl Parser {
-
-    fn expression_pow(&mut self) -> ast::AstNode {
+    fn expression_integer_or_name(&mut self) -> ast::AstNode {
         let token = self.tokenizer.look_ahead(1);
         self.tokenizer.eat(1);
-        let integer_or_name: ast::AstNode;
         match token.token_type {
-            TokenType::Integer => integer_or_name = ast::AstNode::new(ast::NodeType::Integer, token),
-            TokenType::Name => integer_or_name = ast::AstNode::new(ast::NodeType::Name, token),
+            TokenType::Integer => return ast::AstNode::new(ast::NodeType::Integer, token),
+            TokenType::Name => return ast::AstNode::new(ast::NodeType::Name, token),
             _ => panic!("syntax error, line:{}, column:{} expect integer or name", token.row, token.col),
         }
-        let op = self.tokenizer.look_ahead(1);
-        let mut expr_pow: ast::AstNode;
-        match op.token_type {
-            TokenType::Pow => expr_pow = ast::AstNode::new(ast::NodeType::Pow, op),
-            _ => return integer_or_name,
+    }
+    fn expression_pow(&mut self) -> ast::AstNode {
+        let mut left = self.expression_integer_or_name();
+        loop {
+            let op = self.tokenizer.look_ahead(1);
+            match op.token_type {
+                TokenType::Pow => {
+                    let mut pow_expr = ast::AstNode::new(ast::NodeType::Pow, op);
+                    self.tokenizer.eat(1);
+                    pow_expr.add_node(left);
+                    pow_expr.add_node(self.expression_integer_or_name());
+                    left = pow_expr;
+                },
+                _ => return left,
+            }
         }
-        self.tokenizer.eat(1);
-        expr_pow.add_node(integer_or_name);
-        expr_pow.add_node(self.expression_pow());
-        return expr_pow;
     }
 
     fn expression_mul(&mut self) -> ast::AstNode {
-        let expr_pow = self.expression_pow();
-        let op = self.tokenizer.look_ahead(1);
-        let mut expr_mul: ast::AstNode;
-        match op.token_type {
-            TokenType::Mul | TokenType::Div => expr_mul = ast::AstNode::new(ast::NodeType::Mul, op),
-            _ => return expr_pow,
+        let mut left = self.expression_pow();
+        loop {
+            let op = self.tokenizer.look_ahead(1);
+            match op.token_type {
+                TokenType::Mul | TokenType::Div => {
+                    let mut mul_expr = ast::AstNode::new(ast::NodeType::Mul, op);
+                    self.tokenizer.eat(1);
+                    mul_expr.add_node(left);
+                    mul_expr.add_node(self.expression_pow());
+                    left = mul_expr;
+                },
+                _ => return left,
+            }
         }
-        self.tokenizer.eat(1);
-        expr_mul.add_node(expr_pow);
-        expr_mul.add_node(self.expression_mul());
-        return expr_mul;
     }
     fn expression_add(&mut self) -> ast::AstNode {
-        let expr_mul = self.expression_mul();
-        let op = self.tokenizer.look_ahead(1);
-        let mut expr_add: ast::AstNode;
-        match op.token_type {
-            TokenType::Add | TokenType::Sub | TokenType::Mod => expr_add = ast::AstNode::new(ast::NodeType::Add, op),
-            _ => return expr_mul,
+        let mut left = self.expression_mul();
+        loop {
+            let op = self.tokenizer.look_ahead(1);
+            match op.token_type {
+                TokenType::Add | TokenType::Sub | TokenType::Mod => {
+                    let mut add_expr = ast::AstNode::new(ast::NodeType::Add, op);
+                    self.tokenizer.eat(1);
+                    add_expr.add_node(left);
+                    add_expr.add_node(self.expression_mul());
+                    left = add_expr;
+                },
+                _ => return left,
+            }
         }
-        self.tokenizer.eat(1);
-        expr_add.add_node(expr_mul);
-        expr_add.add_node(self.expression_add());
-        return expr_add;
     }
 
     fn expression(&mut self) -> ast::AstNode {
