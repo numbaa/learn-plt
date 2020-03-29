@@ -267,20 +267,26 @@ impl Tokenizer {
         }
     }
 
-    pub fn look_ahead(&mut self, n: usize) -> Token {
+    pub fn look_ahead(&mut self, n: usize) -> Result<Token, String> {
         assert_ne!(n, 0);
         let mut has_read = self.tokens.len();
         while has_read < n {
-            let next_token = self.next().unwrap();
-            let token_type = next_token.token_type;
-            self.tokens.push_back(next_token);
+            let next_token = match self.next() {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            };
+            self.tokens.push_back(next_token.clone());
             has_read = self.tokens.len();
-            match token_type {
-                TokenType::EOF => return self.tokens.back().unwrap().clone(),
+            match next_token.token_type {
+                TokenType::EOF => return match self.tokens.back() {
+                    Some(token) => Ok(token.clone()),
+                    None => panic!(format!("line:{}, column:{}, fatal error, it should be a TokenType::EOF here",
+                        next_token.row, next_token.col)),
+                },
                 _ => (),
             }
         }
-        return self.tokens[n-1].clone();
+        return Ok(self.tokens[n-1].clone());
     }
 
     pub fn eat(&mut self, n: usize) {

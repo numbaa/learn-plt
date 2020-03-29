@@ -42,7 +42,7 @@ impl Interpreter {
         match node.token.token_type {
             tokenizer::TokenType::Add => return left + right,
             tokenizer::TokenType::Sub => return left - right,
-            tokenizer::TokenType::Mul => return left % right,
+            tokenizer::TokenType::Mod => return left % right,
             _ => panic!("logic error"),
         }
     }

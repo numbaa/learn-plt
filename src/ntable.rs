@@ -1,4 +1,3 @@
-use super::ast;
 use std::collections::HashMap;
 
 pub struct Variable {
