@@ -1,4 +1,4 @@
-#Doing
+#Done
 v0.1.0
 - 单文件
 - 支持数学上的加、减、乘、除、幂、求模
@@ -19,6 +19,7 @@ a = <表达式> 可以将表达式的值存入a，本身没有值
     EXPRESSION := ADD_EXPRESSION
     ADD_EXPRESSION := MUL_EXPRESSION "+" ADD_EXPRESSION
                    += MUL_EXPRESSION "-" ADD_EXPRESSION
+                   += MUL_EXPRESSION "%" ADD_EXPRESSION
                    += MUL_EXPRESSION
     MUL_EXPRESSION := POW_EXPRESSION "*" MUL_EXPRESSION
                    += POW_EXPRESSION "/" MUL_EXPRESSION
@@ -32,16 +33,21 @@ a = <表达式> 可以将表达式的值存入a，本身没有值
              += "/"
              += "^"
              += "%"
-    INTEGER := "[1-9]+[0-9]*"
-    NAME := "[a-zA-Z_]+[a-zA-z0-9_]*"
+    INTEGER := "[1-9][0-9]*"
+    NAME := "[a-zA-Z]+"
 
 
-#Plan
+#Doing
 v0.2.0
-- 支持函数定义
-- 只有四种语句，print语句、变量定义语句、while循环语句、函数定义语句
-- 条件表达式
-func name(a, b)     //函数本身没有值，所有函数定义都会提升
+- 新增：函数支持、while语句、括号改变优先级、类型系统、条件表达式
+- 语句变话
+    新增 函数定义语句
+    新增 while循环语句
+    删除 print语句
+- 表达式变化
+    新增 条件表达式
+    新增 函数调用表达式
+func myfunc(a:int, b:float) -> float
 {
     return a * b
 }
@@ -49,3 +55,4 @@ while (条件表达式)
 {
     
 }
+print(myfunc(1, 2)) //print从语句改为函数，是一个builtin函数，返回类型是void
