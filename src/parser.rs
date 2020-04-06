@@ -5,7 +5,6 @@ pub struct Parser {
     tokenizer: Tokenizer
 }
 
-//only for syntax check now
 impl Parser {
     fn expression_integer_or_name(&mut self) -> Result<ast::AstNode, String> {
         let token = match self.tokenizer.look_ahead(1) {
@@ -15,7 +14,7 @@ impl Parser {
         self.tokenizer.eat(1);
         match token.token_type {
             TokenType::Integer => return Ok(ast::AstNode::new(ast::NodeType::Integer, token)),
-            TokenType::Name => return Ok(ast::AstNode::new(ast::NodeType::Name, token)),
+            TokenType::Symbol => return Ok(ast::AstNode::new(ast::NodeType::Name, token)),
             _ => return Err(format!("line:{}, column:{}, syntax error, expect integer or variable",
                     token.row, token.col)),
         }
@@ -141,6 +140,52 @@ impl Parser {
         return Ok(())
     }
 
+    fn parameters_node(&mut self) -> Result<ast::AstNode, String> {
+        let lp = match self.tokenizer.look_ahead(1) {
+            Ok(node) => node,
+            Err(msg) => return Err(msg),
+        };
+        match lp.token_type {
+            TokenType::LP => (),
+            _ => return Err(format!("line:{}, column:{}, syntax error, expect '('), found '{}'",
+                lp.row, lp.col, lp.literal)),
+        }
+        loop {
+            //TODO: parse function parameters
+        }
+        Err("".to_string())
+    }
+
+    fn function_body(&mut self) -> Result<ast::AstNode, String> {
+        Err("".to_string())
+    }
+
+    fn statement_func_decl(&mut self, parent: &mut ast::AstNode) -> Result<(), String> {
+        let func_name = match self.tokenizer.look_ahead(2) {
+            Ok(token) => token,
+            Err(msg) => return Err(msg),
+        };
+        self.tokenizer.eat(2);
+        match func_name.token_type {
+            TokenType::Symbol => (),
+            _ => return Err(format!("line:{}, column:{}, syntax error, expect function name, found '{}'",
+            func_name.row, func_name.col, func_name.literal)),
+        }
+        let mut func_decl_node = ast::AstNode::new(ast::NodeType::FuncDecl, func_name);
+        let parameters_node = match self.parameters_node() {
+            Ok(node) => node,
+            Err(msg) => return Err(msg),
+        };
+        let func_body = match self.function_body() {
+            Ok(node) => node,
+            Err(msg) => return Err(msg),
+        };
+        func_decl_node.add_node(parameters_node);
+        func_decl_node.add_node(func_body);
+        parent.add_node(func_decl_node);
+        Ok(())
+    }
+
     pub fn parse(&mut self) -> Result<ast::AstNode, String> {
         let mut ast_root = ast::AstNode::new(ast::NodeType::Root, Token::new());
         loop {
@@ -155,8 +200,14 @@ impl Parser {
                         return Err(result.unwrap_err());
                     }
                 },
-                TokenType::Name => {
+                TokenType::Symbol => {
                     let result = self.statement_assign(&mut ast_root);
+                    if result.is_err() {
+                        return Err(result.unwrap_err());
+                    }
+                },
+                TokenType::FuncDecl => {
+                    let result = self.statement_func_decl(&mut ast_root);
                     if result.is_err() {
                         return Err(result.unwrap_err());
                     }

@@ -10,6 +10,8 @@ pub enum NodeType {
     Pow,
     Name,
     Integer,
+    FuncDecl,
+    FuncCall,
 }
 
 // pub trait NodeTrait {

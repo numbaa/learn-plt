@@ -5,6 +5,8 @@ mod parser;
 mod ast;
 mod interpreter;
 mod ntable;
+#[macro_use]
+extern crate lazy_static;
 
 pub fn run(filename: &String) -> Result<(),String> {
     

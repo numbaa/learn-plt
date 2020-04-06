@@ -1,5 +1,7 @@
 use std::vec;
 use std::collections::VecDeque;
+use std::collections::HashMap;
+use lazy_static;
 
 pub struct Tokenizer {
     current_pos: usize,
@@ -18,11 +20,29 @@ pub enum TokenType {
     Div,
     Mod,
     Pow,
-    Name,
+    Symbol,
+    While,
+    LP,
+    RP,
+    LBraceket,
+    RBraceket,
     Integer,
+    FuncDecl,
+    Return,
+    Comma,
     Print,
     Newline,
     EOF,
+}
+lazy_static! {
+    static ref keywrods: HashMap<String, TokenType> = {
+        let mut map = HashMap::new();
+        map.insert("while".to_string(), TokenType::While);
+        map.insert("func".to_string(), TokenType::FuncDecl);
+        map.insert("return".to_string(), TokenType::Return);
+        map.insert("print".to_string(), TokenType::Print);
+        map
+    };
 }
 
 pub struct Token {
@@ -80,7 +100,7 @@ impl Tokenizer {
 
     //TODO: support _ and digit in name
     //FIXME: if the last line like 'print a' without <newline>, it will crash because of OUT OF INDEX
-    fn name_or_print(&mut self) -> Result<Token, String> {
+    fn symbol_or_keyword(&mut self) -> Result<Token, String> {
         let mut string = String::from("");
         let old_column = self.current_column;
         loop {
@@ -92,30 +112,30 @@ impl Tokenizer {
                 continue;
             }
             if c.is_whitespace() {
-                let result: Result<Token, String>;
+                //keyword
                 self.current_pos += 1;
-                if string == "print".to_string() {
-                    result = Ok(Token {
-                        literal: "print".to_string(),
-                        token_type: TokenType::Print,
+                match keywrods.get(&string) {
+                    Some(token_type) => return Ok(Token {
+                        literal: string,
+                        token_type: token_type.clone(),
                         row: self.current_line,
                         col: old_column,
-                    });
-                } else {
-                    result =  Ok(Token {
-                        literal: string.clone(),
-                        token_type: TokenType::Name,
-                        row: self.current_line,
-                        col: old_column,
-                    })
+                    }),
+                    None => (),
                 }
+                let symbol =  Ok(Token {
+                    literal: string.clone(),
+                    token_type: TokenType::Symbol,
+                    row: self.current_line,
+                    col: old_column,
+                });
                 if c == '\n' {
                     self.current_line += 1;
                     self.current_pos = 1;
                 } else {
                     self.current_column += 1;
                 }
-                return result;
+                return symbol;
             }
             return Err(format!("unexpected character {}", c).to_string());
         }
@@ -229,6 +249,60 @@ impl Tokenizer {
         })
     }
 
+    fn left_parenthese(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        self.current_column += 1;
+        Ok(Token {
+            token_type: TokenType::LP,
+            literal: "(".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
+        })
+    }
+
+    fn right_parenthese(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        self.current_column += 1;
+        Ok(Token {
+            token_type: TokenType::RP,
+            literal: ")".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
+        })
+    }
+
+    fn left_bracket(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        self.current_column += 1;
+        Ok(Token {
+            token_type: TokenType::LBraceket,
+            literal: "{".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
+        })
+    }
+
+    fn right_bracket(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        self.current_column += 1;
+        Ok(Token {
+            token_type: TokenType::RBraceket,
+            literal: "}".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
+        })
+    }
+
+    fn comma(&mut self) -> Result<Token, String> {
+        self.current_pos += 1;
+        self.current_column += 1;
+        Ok(Token {
+            token_type: TokenType::Comma,
+            literal: ",".to_string(),
+            row: self.current_line,
+            col: self.current_column - 1,
+        })
+    }
 
     fn new_line(&mut self) -> Result<Token, String> {
         self.current_pos += 1;
@@ -249,7 +323,7 @@ impl Tokenizer {
         self.skip_whitespace();
         let next_char = self.chars[self.current_pos];
         if next_char.is_alphabetic() || next_char == '_' {
-            return self.name_or_print();
+            return self.symbol_or_keyword();
         }
         if next_char.is_digit(10) {
             return self.integer();
@@ -263,6 +337,11 @@ impl Tokenizer {
             '/' => return self.div(),
             '%' => return self.remainder(),
             '^' => return self.pow(),
+            '(' => return self.left_parenthese(),
+            ')' => return self.right_parenthese(),
+            '{' => return self.left_bracket(),
+            '}' => return self.right_bracket(),
+            ',' => return self.comma(),
             _ => return Err(format!("unexpected characters {}", next_char).to_string()),
         }
     }
