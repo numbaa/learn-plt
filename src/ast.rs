@@ -11,7 +11,13 @@ pub enum NodeType {
     Name,
     Integer,
     FuncDecl,
+    FuncBody,
     FuncCall,
+    Return,
+    Param,
+    Arg,
+    ParamList,
+    ArgList,
 }
 
 // pub trait NodeTrait {

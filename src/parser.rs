@@ -6,6 +6,34 @@ pub struct Parser {
 }
 
 impl Parser {
+    fn function_call(&mut self, func: Token) -> Result<ast::AstNode, String> {
+        self.tokenizer.eat(1);
+        let mut func_node = ast::AstNode::new(ast::NodeType::FuncCall, func);
+        loop {
+            let arg = match self.tokenizer.look_ahead(1) {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            };
+            self.tokenizer.eat(1);
+            match arg.token_type {
+                TokenType::Symbol => (),
+                _ => return Err(format!("line:{}, column:{}, syntax error, expect argument, found '{}'",
+                    arg.row, arg.col, arg.literal)),
+            }
+            func_node.add_node(ast::AstNode::new(ast::NodeType::Arg, arg));
+            let next_token = match self.tokenizer.look_ahead(1) {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            };
+            match next_token.token_type {
+                TokenType::Comma => (),
+                TokenType::RP => break,
+                _ => return Err(format!("line:{}, column:{}, syntax error, expect ',' or ')'), found '{}'",
+                    next_token.row, next_token.col, next_token.literal)),
+            }
+        }
+        Ok(func_node)
+    }
     fn expression_integer_or_name(&mut self) -> Result<ast::AstNode, String> {
         let token = match self.tokenizer.look_ahead(1) {
             Ok(token) => token,
@@ -14,8 +42,17 @@ impl Parser {
         self.tokenizer.eat(1);
         match token.token_type {
             TokenType::Integer => return Ok(ast::AstNode::new(ast::NodeType::Integer, token)),
-            TokenType::Symbol => return Ok(ast::AstNode::new(ast::NodeType::Name, token)),
-            _ => return Err(format!("line:{}, column:{}, syntax error, expect integer or variable",
+            TokenType::Symbol => {
+                let next_token = match self.tokenizer.look_ahead(1) {
+                    Ok(token) => token,
+                    Err(msg) => return Err(msg),
+                };
+                match next_token.token_type {
+                    TokenType::LP => return self.function_call(token),
+                    _ => return Ok(ast::AstNode::new(ast::NodeType::Name, token))
+                }
+            },
+            _ => return Err(format!("line:{}, column:{}, syntax error, expect integer or variable or function",
                     token.row, token.col)),
         }
     }
@@ -142,22 +179,88 @@ impl Parser {
 
     fn parameters_node(&mut self) -> Result<ast::AstNode, String> {
         let lp = match self.tokenizer.look_ahead(1) {
-            Ok(node) => node,
+            Ok(token) => token,
             Err(msg) => return Err(msg),
         };
+        self.tokenizer.eat(1);
         match lp.token_type {
             TokenType::LP => (),
             _ => return Err(format!("line:{}, column:{}, syntax error, expect '('), found '{}'",
                 lp.row, lp.col, lp.literal)),
         }
+        let mut param_node = ast::AstNode::new(ast::NodeType::ParamList, lp);
         loop {
-            //TODO: parse function parameters
+            let param = match self.tokenizer.look_ahead(1) {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            };
+            self.tokenizer.eat(1);
+            match param.token_type {
+                TokenType::Symbol => (),
+                _ => return Err(format!("line:{}, column:{}, syntax error, expect parameter, found '{}'",
+                    param.row, param.col, param.literal)),
+            }
+            param_node.add_node(ast::AstNode::new(ast::NodeType::Param, param));
+            let next_token = match self.tokenizer.look_ahead(1) {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            };
+            match next_token.token_type {
+                TokenType::Comma => (),
+                TokenType::RP => break,
+                _ => return Err(format!("line:{}, column:{}, syntax error, expect ',' or ')'), found '{}'",
+                    next_token.row, next_token.col, next_token.literal)),
+            }
         }
-        Err("".to_string())
+        Ok(param_node)
     }
 
     fn function_body(&mut self) -> Result<ast::AstNode, String> {
-        Err("".to_string())
+        let lbraceket = match self.tokenizer.look_ahead(1) {
+            Ok(token) => token,
+            Err(msg) => return Err(msg),
+        };
+        self.tokenizer.eat(1);
+        match lbraceket.token_type {
+            TokenType::LBraceket => (),
+            _ => return Err(format!("line:{}, column:{}, syntax error, expect '('), found '{}'",
+                lbraceket.row, lbraceket.col, lbraceket.literal)),
+        }
+        let mut body = ast::AstNode::new(ast::NodeType::FuncBody, lbraceket);
+        loop {
+            let token = match self.tokenizer.look_ahead(1) {
+                Ok(token) => token,
+                Err(msg) => return Err(msg),
+            } ;
+            match token.token_type {
+                TokenType::Print => {
+                    let result = self.statement_print(&mut body);
+                    if result.is_err() {
+                        return Err(result.unwrap_err());
+                    }
+                },
+                TokenType::Symbol => {
+                    let result = self.statement_assign(&mut body);
+                    if result.is_err() {
+                        return Err(result.unwrap_err());
+                    }
+                },
+                TokenType::Return => {
+                    let mut ret = ast::AstNode::new(ast::NodeType::Return, token);
+                    self.tokenizer.eat(1);
+                    let expr = match self.expression() {
+                        Ok(token) => token,
+                        Err(msg) => return Err(msg),
+                    };
+                    ret.add_node(expr);
+                    body.add_node(ret);
+                    return Ok(body);
+                }
+                TokenType::Newline => { self.tokenizer.eat(1); continue; },
+                _ => return Err(format!("line:{}, column:{}, syntax error, expect 'print' or 'variable'",
+                        token.row, token.col)),
+            }
+        }
     }
 
     fn statement_func_decl(&mut self, parent: &mut ast::AstNode) -> Result<(), String> {
