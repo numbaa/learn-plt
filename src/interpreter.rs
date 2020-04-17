@@ -2,6 +2,7 @@ use super::ast;
 use super::ntable;
 use super::tokenizer;
 use std::collections::HashMap;
+use std::vec;
 
 pub struct Interpreter {
     name_table: ntable::NameTable,
@@ -9,7 +10,22 @@ pub struct Interpreter {
 
 impl Interpreter {
     fn exec_func_call(&self, node: &ast::AstNode, func_table: &HashMap<String, &ast::AstNode>) -> Result<i64, String> {
-        //TODO: finish func call
+        let mut local_name_table = vec::Vec::<ntable::Variable>::new();
+        for param in &node.childs[0].childs {
+            let variable = match self.name_table.get(&param.token.literal) {
+                Ok(variable) => variable,
+                Err(msg) => return Err(msg),
+            };
+            local_name_table.push(variable);
+        }
+        let func_node = match func_table.get(&node.token.literal) {
+            Some(node) => node,
+            None => return Err("function not defined".to_string()),
+        };
+        for i in 0..func_node.childs[0].childs.len() {
+            local_name_table[i].name = func_node.childs[0].childs[i].token.literal.clone();
+        }
+        //Seems not possible to finish this without scope system
         Ok(0)
     }
     fn lookup_variable(&self, node: &ast::AstNode) -> Result<i64, String> {
