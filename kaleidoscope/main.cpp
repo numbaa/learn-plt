@@ -14,6 +14,12 @@
 // #include <llvm/IR/Module.h>
  #include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
+//#include <llvm/Target/TargetMachine.h>
+#include <llvm/Support/TargetSelect.h>
+#include <llvm/Transforms/InstCombine/InstCombine.h>
+#include <llvm/Transforms/Scalar.h>
+#include <llvm/Transforms/Scalar/GVN.h>
+#include "KaleidoscopeJIT.h"
 
 //lexer只支持ascii，认识的返回负数，不认识的返回[0-255]
 enum Token {
@@ -69,10 +75,25 @@ static int gettok() {
     return ThisChar;
 }
 
+class PrototypeAST;
 static llvm::LLVMContext TheContext;
 static llvm::IRBuilder<> Builder(TheContext);
 static std::unique_ptr<llvm::Module> TheModule;
 static std::map<std::string, llvm::Value*> NamedValues;
+static std::unique_ptr<llvm::orc::KaleidoscopeJIT> TheJIT;
+static std::unique_ptr<llvm::FunctionPassManager> TheFPM;
+
+
+
+void InitializeModuleAndPassManager(void) {
+    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+    TheModule->setDataLayout(TheJIT->getTargetMachine().createDataLayout());
+    TheFPM = std::make_unique<llvm::FunctionPassManager>(TheModule.get());
+    TheFPM->addPass(llvm::createInstructionCombiningPass());
+    TheFPM->addPass(llvm::createReassociatePass());
+    TheFPM->addPass(llvm::createGVNPass());
+    TheFPM->addPass(llvm::createCFGSimplificationPass());
+}
 
 class ExprAST;
 std::unique_ptr<ExprAST> LogError(const char* Str);
@@ -185,20 +206,30 @@ private:
     std::vector<std::string> Args;
 };
 
+static std::map<std::string, std::unique_ptr<PrototypeAST>> FunctionProtos;
+
+
+llvm::Function* getFunction(std::string Name) {
+    if (auto* F = TheModule->getFunction(Name))
+        return F;
+    auto FI = FunctionProtos.find(Name);
+    if (FI != FunctionProtos.find(Name))
+        return FI->second->codegen();
+    return nullptr;
+}
+
 class FunctionAST {
 public:
     FunctionAST(std::unique_ptr<PrototypeAST> Proto,
             std::unique_ptr<ExprAST> Body)
         : Proto(std::move(Proto)), Body(std::move(Body)) {}
     llvm::Function* codegen() {
-        llvm::Function* TheFunction = TheModule->getFunction(Proto->getName());
-        if (!TheFunction)
-            TheFunction = Proto->codegen();
-        //下面这几行真迷惑人
+        auto& P = *Proto;
+        FunctionProtos[Proto->getName()] = std::move(Proto);
+        llvm::Function* TheFunction = getFunction(P.getName());
         if (!TheFunction)
             return nullptr;
-        if (!TheFunction->empty())
-            return (llvm::Function*)LogErrorV("Function cannot be redefined.");
+
         llvm::BasicBlock* BB = llvm::BasicBlock::Create(TheContext, "entry", TheFunction);
         Builder.SetInsertPoint(BB);
         NamedValues.clear();
@@ -208,6 +239,7 @@ public:
         if (llvm::Value* RetValue = Body->codegen()) {
             Builder.CreateRet(RetValue);
             llvm::verifyFunction(*TheFunction);
+            TheFPM->run(*TheFunction);
             return TheFunction;
         }
         TheFunction->eraseFromParent();
@@ -396,6 +428,8 @@ static void HandleDefinition() {
             fprintf(stderr, "Read function definition: \n");
             FnIR->print(llvm::errs());
             fprintf(stderr, "\n");
+            TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
         }
     } else {
         getNextToken();
@@ -416,10 +450,14 @@ static void HandleExtern() {
 
 static void HandleTopLevelExpression() {
     if (auto FnAST = ParseTopLevelExpr()) {
-        if (auto* FnIR = FnAST->codegen()) {
-            fprintf(stderr, "Read top-level expression:\n");
-            FnIR->print(llvm::errs());
-            fprintf(stderr, "\n");
+        if (FnAST->codegen()) {
+            auto H = TheJIT->addModule(std::move(TheModule));
+            InitializeModuleAndPassManager();
+            auto ExprSymbol = TheJIT->findSymbol("__anon_expr");
+            assert(ExprSymbol && "Function Not Found");
+            auto FP = (double(*)())(intptr_t)ExprSymbol.getAddress().get();
+            fprintf(stderr, "Evaluated to %f\n", FP());
+            TheJIT->removeModule(H);
         }
     } else {
         getNextToken();
@@ -449,6 +487,9 @@ static void MainLoop() {
 }
 
 int main() {
+    llvm::InitializeNativeTarget();
+    llvm::InitializeNativeTargetAsmPrinter();
+    llvm::InitializeNativeTargetAsmParser();
     BinopPrecedence['<'] = 10;
     BinopPrecedence['+'] = 20;
     BinopPrecedence['-'] = 20;
@@ -456,8 +497,10 @@ int main() {
 
     fprintf(stderr, "ready> ");
     getNextToken();
-    TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+    //TheModule = std::make_unique<llvm::Module>("my cool jit", TheContext);
+    TheJIT = std::make_unique<llvm::orc::KaleidoscopeJIT>();
+    InitializeModuleAndPassManager();
     MainLoop();
-    TheModule->print(llvm::errs(), nullptr);
+    //TheModule->print(llvm::errs(), nullptr);
     return 0;
 }
